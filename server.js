@@ -19,6 +19,7 @@ const io = new Server(server, {
     origin: "*",
     methods: ["GET", "POST"],
   },
+  transports: ["websocket", "polling"],
 });
 
 const onlineUsers = new Map();
@@ -46,6 +47,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
+    console.log("Disconnected:", socket.id);
+
     for (const [userId, socketId] of onlineUsers.entries()) {
       if (socketId === socket.id) {
         onlineUsers.delete(userId);
@@ -58,6 +61,6 @@ io.on("connection", (socket) => {
 
 const PORT = process.env.PORT || 3001;
 
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`Socket server running on port ${PORT}`);
 });
