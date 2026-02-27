@@ -5,9 +5,14 @@ import cors from "cors";
 
 const app = express();
 
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://data-mate-khaki.vercel.app",
+];
+
 app.use(
   cors({
-    origin: ["http://localhost:3000", "https://data-mate-khaki.vercel.app"],
+    origin: allowedOrigins,
     credentials: true,
   }),
 );
@@ -16,10 +21,13 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
+    credentials: true,
   },
   transports: ["websocket", "polling"],
+  pingTimeout: 60000,
+  pingInterval: 25000,
 });
 
 const onlineUsers = new Map();
@@ -29,9 +37,13 @@ io.on("connection", (socket) => {
 
   socket.on("join", ({ userId }) => {
     socket.join(userId);
-    onlineUsers.set(userId, socket.id);
 
-    io.emit("online-users", Array.from(onlineUsers.keys()));
+    onlineUsers.set(userId, {
+      userId,
+      socketId: socket.id,
+    });
+
+    io.emit("online-users", Array.from(onlineUsers.values()));
   });
 
   socket.on("join-conversation", ({ conversationId }) => {
@@ -46,16 +58,20 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("send-message", (message) => {
+    io.to(`conversation:${message.conversationId}`).emit("message", message);
+  });
+
   socket.on("disconnect", () => {
     console.log("Disconnected:", socket.id);
 
-    for (const [userId, socketId] of onlineUsers.entries()) {
-      if (socketId === socket.id) {
+    for (const [userId, data] of onlineUsers.entries()) {
+      if (data.socketId === socket.id) {
         onlineUsers.delete(userId);
       }
     }
 
-    io.emit("online-users", Array.from(onlineUsers.keys()));
+    io.emit("online-users", Array.from(onlineUsers.values()));
   });
 });
 
