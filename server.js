@@ -25,7 +25,7 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
     credentials: true,
   },
-  transports: ["websocket", "polling"],
+  transports: ["websocket"],
   pingTimeout: 60000,
   pingInterval: 25000,
 });
@@ -35,19 +35,34 @@ const onlineUsers = new Map();
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  socket.on("join", ({ userId }) => {
-    socket.join(userId);
+  socket.on("join", ({ userId, userRole, name }) => {
+    if (!userId) return;
 
-    onlineUsers.set(userId, {
-      userId,
+    const uid = String(userId);
+
+    socket.join(uid);
+
+    onlineUsers.set(uid, {
+      userId: uid,
       socketId: socket.id,
+      userRole: userRole || "USER",
+      name: name || "User",
+      lastSeen: new Date().toISOString(),
     });
+
+    console.log(
+      `User ${uid} (${userRole}) joined. Total online: ${onlineUsers.size}`,
+    );
 
     io.emit("online-users", Array.from(onlineUsers.values()));
   });
 
   socket.on("join-conversation", ({ conversationId }) => {
+    if (!conversationId) return;
+
     socket.join(`conversation:${conversationId}`);
+
+    console.log(`Socket ${socket.id} joined conversation: ${conversationId}`);
   });
 
   socket.on("typing", ({ conversationId, isTyping, userId }) => {
@@ -59,18 +74,21 @@ io.on("connection", (socket) => {
   });
 
   socket.on("send-message", (message) => {
+    if (!message?.conversationId) return;
     io.to(`conversation:${message.conversationId}`).emit("message", message);
+    if (message.recipientId) {
+      io.to(String(message.recipientId)).emit("message", message);
+    }
   });
 
-  socket.on("disconnect", () => {
-    console.log("Disconnected:", socket.id);
-
+  socket.on("disconnect", (reason) => {
+    console.log("Disconnected:", socket.id, "Reason:", reason);
     for (const [userId, data] of onlineUsers.entries()) {
       if (data.socketId === socket.id) {
         onlineUsers.delete(userId);
+        console.log(`User ${userId} removed from online users`);
       }
     }
-
     io.emit("online-users", Array.from(onlineUsers.values()));
   });
 });
