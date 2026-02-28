@@ -33,36 +33,21 @@ const io = new Server(server, {
 const onlineUsers = new Map();
 
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
-
-  socket.on("join", ({ userId, userRole, name }) => {
-    if (!userId) return;
-
-    const uid = String(userId);
-
-    socket.join(uid);
-
-    onlineUsers.set(uid, {
-      userId: uid,
+  socket.on("join", ({ userId, name, role }) => {
+    socket.join(userId);
+    onlineUsers.set(userId, {
+      userId,
       socketId: socket.id,
-      userRole: userRole || "USER",
-      name: name || "User",
-      lastSeen: new Date().toISOString(),
+      name,
+      role,
     });
-
-    console.log(
-      `User ${uid} (${userRole}) joined. Total online: ${onlineUsers.size}`,
-    );
-
     io.emit("online-users", Array.from(onlineUsers.values()));
   });
 
   socket.on("join-conversation", ({ conversationId }) => {
     if (!conversationId) return;
-
     socket.join(`conversation:${conversationId}`);
-
-    console.log(`Socket ${socket.id} joined conversation: ${conversationId}`);
+    console.log(`Socket joined conversation: ${conversationId}`);
   });
 
   socket.on("typing", ({ conversationId, isTyping, userId }) => {
@@ -86,7 +71,6 @@ io.on("connection", (socket) => {
     for (const [userId, data] of onlineUsers.entries()) {
       if (data.socketId === socket.id) {
         onlineUsers.delete(userId);
-        console.log(`User ${userId} removed from online users`);
       }
     }
     io.emit("online-users", Array.from(onlineUsers.values()));
