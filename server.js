@@ -45,9 +45,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("join-conversation", ({ conversationId }) => {
-    if (!conversationId) return;
     socket.join(`conversation:${conversationId}`);
-    console.log(`Socket joined conversation: ${conversationId}`);
   });
 
   socket.on("typing", ({ conversationId, isTyping, userId }) => {
@@ -59,15 +57,13 @@ io.on("connection", (socket) => {
   });
 
   socket.on("send-message", (message) => {
-    if (!message?.conversationId) return;
     io.to(`conversation:${message.conversationId}`).emit("message", message);
     if (message.recipientId) {
       io.to(String(message.recipientId)).emit("message", message);
     }
   });
 
-  socket.on("disconnect", (reason) => {
-    console.log("Disconnected:", socket.id, "Reason:", reason);
+  socket.on("disconnect", () => {
     for (const [userId, data] of onlineUsers.entries()) {
       if (data.socketId === socket.id) {
         onlineUsers.delete(userId);
@@ -77,8 +73,6 @@ io.on("connection", (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 3001;
-
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Socket server running on port ${PORT}`);
+server.listen(3001, "0.0.0.0", () => {
+  console.log("Socket server running on port 3001");
 });
